@@ -24,329 +24,58 @@
           <p>Entry-level and internship careers made easier.</p>
         </div>
       </div>
-      <button id="openPaywallBtn" class="btn primary">View Plans</button>
+      <nav class="top-nav">
+        <a class="btn ghost" href="./dashboard.html">Dashboard</a>
+        <a class="btn primary" href="./pricing.html">Pricing</a>
+      </nav>
     </header>
 
     <main>
       <section class="hero">
         <div class="hero-copy">
           <p class="eyebrow">Built for first-break job seekers</p>
-          <h2>
-            Find IT, cybersecurity, and tech jobs that actually match your
-            skills.
-          </h2>
+          <h2>Find IT, cybersecurity, and tech jobs that actually match your skills.</h2>
           <p>
-            Search opportunities, score your resume for ATS compatibility, and
-            get guided improvements so you can land interviews faster.
+            Launchpad helps people who struggle to get interviews by combining smart job matching,
+            ATS-ready resume guidance, and application tracking in one place.
           </p>
           <div class="hero-cta-row">
-            <a href="#jobTool" class="btn primary">Start Job Match</a>
-            <a href="#resumeTool" class="btn ghost">Check ATS Resume Score</a>
+            <a href="./dashboard.html" class="btn primary">Open Dashboard</a>
+            <a href="./pricing.html" class="btn ghost">View Plans</a>
           </div>
         </div>
         <div class="hero-card">
-          <h3>Why this works</h3>
+          <h3>What You Can Do</h3>
           <ul>
-            <li>Focused on early-career, entry-level, and internships</li>
-            <li>Filters out mismatched postings quickly</li>
-            <li>Helps tailor resumes to job keywords</li>
-            <li>Tracks applications and interview readiness</li>
+            <li>Match to entry-level and internship roles by skill fit</li>
+            <li>Improve ATS resume score with keyword gap analysis</li>
+            <li>Save jobs and track interview stages in one dashboard</li>
+            <li>Upgrade plans for advanced search and support features</li>
           </ul>
         </div>
       </section>
 
       <section class="panel">
-        <h3>Account + Plan Access</h3>
-        <p>
-          Create an account to save jobs, track applications, and unlock
-          higher-tier features.
-        </p>
-        <div class="account-grid">
-          <article class="account-card">
-            <h4>Sign Up</h4>
-            <label>
-              Full name
-              <input id="signupName" type="text" placeholder="Jane Applicant" />
-            </label>
-            <label>
-              Email
-              <input id="signupEmail" type="email" placeholder="you@email.com" />
-            </label>
-            <label>
-              Password
-              <input
-                id="signupPassword"
-                type="password"
-                placeholder="Create a password"
-              />
-            </label>
-            <button id="signupBtn" class="btn primary">Create Account</button>
-          </article>
-          <article class="account-card">
-            <h4>Log In</h4>
-            <label>
-              Email
-              <input id="loginEmail" type="email" placeholder="you@email.com" />
-            </label>
-            <label>
-              Password
-              <input id="loginPassword" type="password" placeholder="Password" />
-            </label>
-            <button id="loginBtn" class="btn ghost">Log In</button>
-            <button id="logoutBtn" class="btn ghost">Log Out</button>
-            <p id="authStatus" class="result-meta"></p>
-          </article>
-        </div>
-      </section>
-
-      <section id="jobTool" class="panel">
-        <h3>Job Match Finder</h3>
-        <p>
-          Select your focus area and skills. We rank jobs by qualification fit.
-        </p>
-        <div class="form-grid">
-          <label>
-            Job source
-            <select id="jobSource">
-              <option value="live">Live APIs + Local fallback</option>
-              <option value="local">Local dataset only</option>
-            </select>
-          </label>
-          <label>
-            Job type
-            <select id="jobType">
-              <option value="all">All</option>
-              <option value="entry-level">Entry-Level</option>
-              <option value="internship">Internship</option>
-            </select>
-          </label>
-          <label>
-            Career track
-            <select id="careerTrack">
-              <option value="all">All Tech Tracks</option>
-              <option value="it">IT / Help Desk</option>
-              <option value="cybersecurity">Cybersecurity</option>
-              <option value="software">Software / QA</option>
-              <option value="data">Data / Analytics</option>
-              <option value="cloud">Cloud / DevOps</option>
-            </select>
-          </label>
-          <label class="wide">
-            Your skills (comma separated)
-            <input
-              id="skillsInput"
-              type="text"
-              placeholder="Example: Active Directory, Python, Splunk, SQL"
-            />
-          </label>
-          <label>
-            Preferred location
-            <input
-              id="locationInput"
-              type="text"
-              placeholder="Remote, NYC, Dallas"
-            />
-          </label>
-        </div>
-        <div class="actions">
-          <button id="findJobsBtn" class="btn primary">Find Matching Jobs</button>
-        </div>
-        <div id="jobResults" class="results"></div>
-      </section>
-
-      <section id="resumeTool" class="panel">
-        <h3>ATS Resume Optimizer</h3>
-        <p>
-          Paste resume text and a target job description to score alignment and
-          get rewrite guidance.
-        </p>
-        <div class="resume-grid">
-          <label>
-            Resume text
-            <textarea
-              id="resumeText"
-              rows="9"
-              placeholder="Paste your resume content here..."
-            ></textarea>
-          </label>
-          <label>
-            Target job description
-            <textarea
-              id="jobDescText"
-              rows="9"
-              placeholder="Paste the job description here..."
-            ></textarea>
-          </label>
-        </div>
-        <div class="actions">
-          <button id="analyzeResumeBtn" class="btn primary">
-            Analyze ATS Readiness
-          </button>
-        </div>
-        <div class="actions">
-          <label>
-            Upload resume file (.txt, .pdf, .docx)
-            <input id="resumeUploadInput" type="file" accept=".txt,.pdf,.doc,.docx" />
-          </label>
-          <p id="uploadStatus" class="result-meta"></p>
-        </div>
-        <div id="atsScoreCard" class="score-card hidden"></div>
-      </section>
-
-      <section class="panel">
-        <h3>Saved Jobs + Application Tracker</h3>
-        <p>
-          Save matching jobs, track stage changes, and keep your search organized.
-        </p>
-        <div id="savedJobs" class="results"></div>
-        <div class="tracker-grid">
-          <label>
-            Company
-            <input id="trackCompany" type="text" placeholder="Company name" />
-          </label>
-          <label>
-            Role
-            <input id="trackRole" type="text" placeholder="Role title" />
-          </label>
-          <label>
-            Stage
-            <select id="trackStage">
-              <option>Applied</option>
-              <option>Recruiter Screen</option>
-              <option>Interview Round 1</option>
-              <option>Final Interview</option>
-              <option>Offer</option>
-              <option>Rejected</option>
-            </select>
-          </label>
-          <label>
-            Date
-            <input id="trackDate" type="date" />
-          </label>
-        </div>
-        <div class="actions">
-          <button id="addTrackerBtn" class="btn primary">Add To Tracker</button>
-        </div>
-        <div id="trackerTableWrap"></div>
-      </section>
-
-      <section class="panel">
-        <h3>Admin Analytics</h3>
-        <p>
-          Admin users can track user growth, ATS usage, and application pipeline
-          metrics.
-        </p>
-        <div class="actions">
-          <button id="loadAnalyticsBtn" class="btn ghost">Load Analytics</button>
-        </div>
-        <div id="analyticsWrap" class="results"></div>
-      </section>
-
-      <section class="panel">
-        <h3>Additional Job Search Tools</h3>
+        <h3>Clickable Tools</h3>
+        <p>Use the buttons below to access the app areas directly.</p>
         <div class="tool-grid">
           <article>
-            <h4>Interview Tracker</h4>
-            <p>
-              Track applications, interview stages, follow-ups, and recruiter
-              contacts.
-            </p>
+            <h4>Job Matching</h4>
+            <p>Find roles based on your skills, location, and track.</p>
+            <p><a class="btn ghost" href="./dashboard.html#jobTool">Open Job Match</a></p>
           </article>
           <article>
-            <h4>Skill Gap Radar</h4>
-            <p>
-              Compare your current skills against common requirements in entry
-              tech roles.
-            </p>
+            <h4>ATS Resume Analyzer</h4>
+            <p>Score your resume against a target description.</p>
+            <p><a class="btn ghost" href="./dashboard.html#resumeTool">Open ATS Tool</a></p>
           </article>
           <article>
-            <h4>Cover Letter Builder</h4>
-            <p>
-              Generate role-specific points and measurable achievements to
-              include quickly.
-            </p>
-          </article>
-          <article>
-            <h4>Salary Snapshot</h4>
-            <p>
-              Estimate compensation bands by role level, location, and work
-              type.
-            </p>
-          </article>
-          <article>
-            <h4>LinkedIn Profile Tune-up</h4>
-            <p>
-              Improve headline, summary, and skills sections to boost recruiter
-              visibility.
-            </p>
-          </article>
-          <article>
-            <h4>Networking Prompt Coach</h4>
-            <p>
-              Build outreach messages for alumni, recruiters, and hiring
-              managers.
-            </p>
+            <h4>Pricing & Plans</h4>
+            <p>Choose Starter, Momentum, or Career Accelerator.</p>
+            <p><a class="btn ghost" href="./pricing.html">Open Pricing</a></p>
           </article>
         </div>
       </section>
     </main>
-
-    <div id="paywallModal" class="modal hidden" aria-hidden="true">
-      <div class="modal-backdrop" id="closePaywallBackdrop"></div>
-      <div class="modal-content" role="dialog" aria-label="Pricing plans">
-        <button id="closePaywallBtn" class="close-btn" aria-label="Close">
-          x
-        </button>
-        <h3>Choose Your Job Search Plan</h3>
-        <p class="modal-subcopy">
-          Low-cost access starts at <strong>$7.99/month</strong>, with higher
-          tiers for deeper support and faster interview outcomes.
-        </p>
-        <div class="pricing-grid">
-          <article class="tier">
-            <h4>Starter</h4>
-            <p class="price">$7.99<span>/month</span></p>
-            <ul>
-              <li>Basic job-match finder (up to 30 matches/month)</li>
-              <li>ATS resume checker with keyword hints</li>
-              <li>Application tracker (20 applications)</li>
-              <li>Email support in 72 hours</li>
-            </ul>
-            <button class="btn ghost tier-btn" data-tier="starter">
-              Choose Starter
-            </button>
-          </article>
-          <article class="tier featured">
-            <p class="badge">Most Popular</p>
-            <h4>Momentum</h4>
-            <p class="price">$19.99<span>/month</span></p>
-            <ul>
-              <li>Unlimited job matching + smart fit scoring</li>
-              <li>ATS resume rewrite suggestions by role</li>
-              <li>Cover letter builder + interview prep checklist</li>
-              <li>Priority support in 24 hours</li>
-            </ul>
-            <button class="btn primary tier-btn" data-tier="momentum">
-              Choose Momentum
-            </button>
-          </article>
-          <article class="tier">
-            <h4>Career Accelerator</h4>
-            <p class="price">$39.99<span>/month</span></p>
-            <ul>
-              <li>Everything in Momentum</li>
-              <li>Weekly resume strategy review</li>
-              <li>Mock interview prompts + feedback reports</li>
-              <li>Direct recruiter targeting toolkit</li>
-            </ul>
-            <button class="btn ghost tier-btn" data-tier="accelerator">
-              Choose Accelerator
-            </button>
-          </article>
-        </div>
-      </div>
-    </div>
-
-    <script src="./script.js"></script>
   </body>
 </html>

@@ -18,6 +18,8 @@ DB_PATH = BASE_DIR / "data.db"
 STATIC_FILES = {
     "/": "index.html",
     "/index.html": "index.html",
+    "/dashboard.html": "dashboard.html",
+    "/pricing.html": "pricing.html",
     "/styles.css": "styles.css",
     "/script.js": "script.js",
 }
