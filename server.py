@@ -1,13 +1,16 @@
 import base64
 import hashlib
 import hmac
+import io
 import json
 import os
+import re
 import secrets
 import sqlite3
 import time
 import urllib.parse
 import urllib.request
+import zipfile
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -291,6 +294,109 @@ def write_json(handler: BaseHTTPRequestHandler, code: int, data: dict):
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
     handler.end_headers()
     handler.wfile.write(body)
+
+
+def parse_multipart(handler: BaseHTTPRequestHandler):
+    content_type = handler.headers.get("Content-Type", "")
+    if "multipart/form-data" not in content_type:
+        return {}
+    boundary_key = "boundary="
+    if boundary_key not in content_type:
+        return {}
+    boundary = content_type.split(boundary_key, 1)[1].strip()
+    if boundary.startswith('"') and boundary.endswith('"'):
+        boundary = boundary[1:-1]
+    boundary_bytes = ("--" + boundary).encode("utf-8")
+    length = int(handler.headers.get("Content-Length", 0))
+    raw = handler.rfile.read(length) if length > 0 else b""
+
+    fields = {}
+    parts = raw.split(boundary_bytes)
+    for part in parts:
+        if not part or part in (b"--", b"--\r\n"):
+            continue
+        part = part.strip(b"\r\n")
+        if not part or b"\r\n\r\n" not in part:
+            continue
+        header_blob, payload = part.split(b"\r\n\r\n", 1)
+        payload = payload.rstrip(b"\r\n")
+        header_text = header_blob.decode("utf-8", errors="ignore")
+        disposition = ""
+        for line in header_text.split("\r\n"):
+            if line.lower().startswith("content-disposition:"):
+                disposition = line
+                break
+        if not disposition:
+            continue
+
+        name_match = re.search(r'name="([^"]+)"', disposition)
+        if not name_match:
+            continue
+        field_name = name_match.group(1)
+        filename_match = re.search(r'filename="([^"]*)"', disposition)
+        if filename_match:
+            fields[field_name] = {
+                "filename": filename_match.group(1),
+                "content": payload,
+                "headers": header_text,
+            }
+        else:
+            fields[field_name] = payload.decode("utf-8", errors="ignore")
+    return fields
+
+
+def strip_xml_tags(text: str):
+    text = re.sub(r"</w:p>", "\n", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def extract_text_from_docx(data: bytes):
+    with zipfile.ZipFile(io.BytesIO(data), "r") as archive:
+        xml = archive.read("word/document.xml").decode("utf-8", errors="ignore")
+    return strip_xml_tags(xml)
+
+
+def extract_text_from_pdf(data: bytes):
+    # Prefer pypdf if installed; otherwise use a lightweight fallback.
+    try:
+        from pypdf import PdfReader  # type: ignore
+
+        reader = PdfReader(io.BytesIO(data))
+        text = []
+        for page in reader.pages:
+            text.append(page.extract_text() or "")
+        joined = "\n".join(text).strip()
+        if joined:
+            return joined
+    except Exception:
+        pass
+
+    # Fallback parser (best effort for simple PDFs).
+    content = data.decode("latin-1", errors="ignore")
+    chunks = re.findall(r"\(([^)]{2,2000})\)\s*Tj", content)
+    if not chunks:
+        chunks = re.findall(r"\[(.*?)\]\s*TJ", content, flags=re.DOTALL)
+    text = " ".join(chunks)
+    text = re.sub(r"\\[nrt]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def extract_resume_text(filename: str, data: bytes):
+    ext = Path(filename or "").suffix.lower()
+    if ext == ".txt":
+        return data.decode("utf-8", errors="ignore").strip(), ""
+    if ext == ".docx":
+        return extract_text_from_docx(data), ""
+    if ext == ".pdf":
+        extracted = extract_text_from_pdf(data)
+        warning = ""
+        if len(extracted) < 120:
+            warning = "PDF extraction returned limited text. Upload DOCX or paste text for best ATS accuracy."
+        return extracted, warning
+    return "", "Unsupported file type. Please upload .txt, .docx, or .pdf."
 
 
 def tokenize(text: str):
@@ -607,6 +713,32 @@ class AppHandler(BaseHTTPRequestHandler):
                         "plan": row["plan"],
                         "isAdmin": bool(row["is_admin"]),
                     },
+                },
+            )
+
+        if path == "/api/resume/extract":
+            user = get_user_from_auth(self)
+            if not user:
+                return write_json(self, 401, {"error": "Unauthorized"})
+            fields = parse_multipart(self)
+            file_obj = fields.get("resume")
+            if not isinstance(file_obj, dict):
+                return write_json(self, 400, {"error": "Missing file field 'resume'"})
+            filename = str(file_obj.get("filename", "")).strip()
+            payload = file_obj.get("content", b"")
+            if not filename or not payload:
+                return write_json(self, 400, {"error": "Uploaded file is empty"})
+
+            text, warning = extract_resume_text(filename, payload)
+            if not text:
+                return write_json(self, 400, {"error": warning or "Could not extract text from file"})
+            return write_json(
+                self,
+                200,
+                {
+                    "filename": filename,
+                    "extractedText": text[:250000],
+                    "warning": warning,
                 },
             )
 

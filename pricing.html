@@ -7,49 +7,51 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@500;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <header class="site-header">
+    <header class="app-header">
       <div class="logo-wrap">
         <p class="logo-mark">LP</p>
         <div>
-          <h1>Launchpad Pricing</h1>
-          <p>Choose a plan that matches your job search pace.</p>
+          <h1>Launchpad Plans</h1>
+          <p>Choose the support level that fits your search.</p>
         </div>
       </div>
       <nav class="top-nav">
         <a class="btn ghost" href="./index.html">Home</a>
-        <a class="btn ghost" href="./dashboard.html">Dashboard</a>
+        <a class="btn primary" href="./dashboard.html">Dashboard</a>
       </nav>
     </header>
 
-    <main>
+    <main class="app-main">
       <section class="panel">
-        <h3>Subscription Tiers</h3>
-        <p>All plans support entry-level and internship searches for IT, cybersecurity, and tech jobs.</p>
+        <h3>Three Tiers</h3>
+        <p class="result-meta">Start low-cost at $7.99 and upgrade for more automation and support.</p>
         <div class="pricing-grid">
           <article class="tier">
             <h4>Starter</h4>
             <p class="price">$7.99<span>/month</span></p>
             <ul>
-              <li>Basic job matching</li>
-              <li>ATS resume scoring</li>
-              <li>Saved jobs + tracker</li>
+              <li>Core job matching</li>
+              <li>ATS resume analysis</li>
+              <li>Save jobs and track applications</li>
+              <li>Great for first-time applicants</li>
             </ul>
             <button class="btn ghost tier-btn" data-tier="starter">Choose Starter</button>
           </article>
           <article class="tier featured">
-            <p class="badge">Most Popular</p>
+            <p class="badge">Recommended</p>
             <h4>Momentum</h4>
             <p class="price">$19.99<span>/month</span></p>
             <ul>
-              <li>More ATS analyses</li>
-              <li>Higher job match limits</li>
-              <li>Priority support tools</li>
+              <li>Higher ATS and search limits</li>
+              <li>Priority support workflows</li>
+              <li>Faster job-targeting process</li>
+              <li>Best for active weekly applications</li>
             </ul>
             <button class="btn primary tier-btn" data-tier="momentum">Choose Momentum</button>
           </article>
@@ -57,16 +59,16 @@
             <h4>Career Accelerator</h4>
             <p class="price">$39.99<span>/month</span></p>
             <ul>
-              <li>Unlimited ATS/job matching</li>
-              <li>Advanced interview tracking</li>
-              <li>Full premium workflow</li>
+              <li>Everything in Momentum</li>
+              <li>Top-tier unlimited workflow</li>
+              <li>Advanced interview readiness stack</li>
+              <li>Best for aggressive job search timelines</li>
             </ul>
             <button class="btn ghost tier-btn" data-tier="accelerator">Choose Accelerator</button>
           </article>
         </div>
       </section>
     </main>
-
     <script src="./script.js"></script>
   </body>
 </html>

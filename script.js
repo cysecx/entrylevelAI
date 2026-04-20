@@ -6,12 +6,11 @@ const state = {
   jobs: []
 };
 
-function $(id) {
-  return document.querySelector(id);
-}
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => document.querySelectorAll(selector);
 
-function bind(el, event, handler) {
-  if (el) el.addEventListener(event, handler);
+function bind(element, eventName, handler) {
+  if (element) element.addEventListener(eventName, handler);
 }
 
 function escapeHtml(value) {
@@ -24,7 +23,9 @@ function escapeHtml(value) {
 }
 
 async function apiFetch(path, options = {}) {
-  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  const headers = { ...(options.headers || {}) };
+  const isFormData = options.body instanceof FormData;
+  if (!isFormData) headers["Content-Type"] = headers["Content-Type"] || "application/json";
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
 
   const response = await fetch(`${apiBase}${path}`, { ...options, headers });
@@ -33,42 +34,43 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-async function loadCurrentUser() {
+function setAuthStatus(message) {
   const authStatusEl = $("#authStatus");
+  if (authStatusEl) authStatusEl.textContent = message;
+}
+
+async function loadCurrentUser() {
   if (!state.token) {
     state.user = null;
-    if (authStatusEl) authStatusEl.textContent = "Not logged in.";
+    setAuthStatus("Not logged in.");
     return;
   }
   try {
-    const data = await apiFetch("/api/auth/me", { method: "GET", headers: {} });
+    const data = await apiFetch("/api/auth/me", { method: "GET" });
     state.user = data.user;
-    if (authStatusEl) {
-      authStatusEl.textContent = `Logged in as ${state.user.name} (${state.user.email}) | Plan: ${state.user.plan}`;
-    }
+    setAuthStatus(`Logged in as ${state.user.name} (${state.user.email}) | Plan: ${state.user.plan}`);
   } catch {
     state.token = "";
     state.user = null;
     localStorage.removeItem("launchpad_token");
-    if (authStatusEl) authStatusEl.textContent = "Not logged in.";
+    setAuthStatus("Not logged in.");
   }
 }
 
 async function signup() {
   try {
+    const payload = {
+      name: $("#signupName")?.value?.trim() || "",
+      email: $("#signupEmail")?.value?.trim().toLowerCase() || "",
+      password: $("#signupPassword")?.value || ""
+    };
     const data = await apiFetch("/api/auth/signup", {
       method: "POST",
-      body: JSON.stringify({
-        name: $("#signupName")?.value?.trim() || "",
-        email: $("#signupEmail")?.value?.trim().toLowerCase() || "",
-        password: $("#signupPassword")?.value || ""
-      })
+      body: JSON.stringify(payload)
     });
     state.token = data.token;
     localStorage.setItem("launchpad_token", state.token);
-    await loadCurrentUser();
-    await loadSavedJobs();
-    await loadApplications();
+    await postLoginRefresh();
   } catch (error) {
     alert(error.message);
   }
@@ -76,54 +78,56 @@ async function signup() {
 
 async function login() {
   try {
+    const payload = {
+      email: $("#loginEmail")?.value?.trim().toLowerCase() || "",
+      password: $("#loginPassword")?.value || ""
+    };
     const data = await apiFetch("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({
-        email: $("#loginEmail")?.value?.trim().toLowerCase() || "",
-        password: $("#loginPassword")?.value || ""
-      })
+      body: JSON.stringify(payload)
     });
     state.token = data.token;
     localStorage.setItem("launchpad_token", state.token);
-    await loadCurrentUser();
-    await loadSavedJobs();
-    await loadApplications();
+    await postLoginRefresh();
   } catch (error) {
     alert(error.message);
   }
+}
+
+async function postLoginRefresh() {
+  await loadCurrentUser();
+  await Promise.all([loadSavedJobs(), loadApplications()]);
 }
 
 function logout() {
   state.token = "";
   state.user = null;
   localStorage.removeItem("launchpad_token");
-  const authStatusEl = $("#authStatus");
-  if (authStatusEl) authStatusEl.textContent = "Not logged in.";
-  const savedJobsEl = $("#savedJobs");
-  const trackerTableWrapEl = $("#trackerTableWrap");
-  if (savedJobsEl) savedJobsEl.innerHTML = "";
-  if (trackerTableWrapEl) trackerTableWrapEl.innerHTML = "";
+  setAuthStatus("Not logged in.");
+  if ($("#savedJobs")) $("#savedJobs").innerHTML = "";
+  if ($("#trackerTableWrap")) $("#trackerTableWrap").innerHTML = "";
 }
 
 function renderJobResults(jobs) {
-  const jobResultsEl = $("#jobResults");
-  if (!jobResultsEl) return;
+  const resultsEl = $("#jobResults");
+  if (!resultsEl) return;
   if (!jobs.length) {
-    jobResultsEl.innerHTML = `<article class="result-item"><h4>No close matches yet</h4><p class="result-meta">Try adding more skills.</p></article>`;
+    resultsEl.innerHTML = `<article class="result-item"><h4>No matches found</h4><p class="result-meta">Try changing track, location, or skills.</p></article>`;
     return;
   }
-  jobResultsEl.innerHTML = jobs
+
+  resultsEl.innerHTML = jobs
     .map(
       (job, idx) => `
       <article class="result-item">
         <h4>${escapeHtml(job.title)} - ${escapeHtml(job.company)}</h4>
         <p class="result-meta">${escapeHtml(job.location)} | ${escapeHtml(job.type)} | ${escapeHtml(job.track)}</p>
-        <p class="fit">Qualification fit: ${Number(job.score || 0)}% (${Number(job.matchCount || 0)} skill matches)</p>
+        <p class="fit">Match Score: ${Number(job.score || 0)}% (${Number(job.matchCount || 0)} matching skills)</p>
         <div class="result-actions">
           <button class="btn ghost save-job-btn" data-index="${idx}">Save Job</button>
           ${
             job.url
-              ? `<a class="btn ghost" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">Apply Link</a>`
+              ? `<a class="btn ghost" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">Open Listing</a>`
               : ""
           }
         </div>
@@ -132,15 +136,18 @@ function renderJobResults(jobs) {
     )
     .join("");
 
-  document.querySelectorAll(".save-job-btn").forEach((btn) => {
-    bind(btn, "click", async () => {
+  $$(".save-job-btn").forEach((button) => {
+    bind(button, "click", async () => {
       if (!state.user) {
         alert("Please log in first.");
         return;
       }
-      const job = state.jobs[Number(btn.dataset.index)];
       try {
-        await apiFetch("/api/saved-jobs", { method: "POST", body: JSON.stringify(job) });
+        const job = state.jobs[Number(button.dataset.index)];
+        await apiFetch("/api/saved-jobs", {
+          method: "POST",
+          body: JSON.stringify(job)
+        });
         await loadSavedJobs();
       } catch (error) {
         alert(error.message);
@@ -150,11 +157,11 @@ function renderJobResults(jobs) {
 }
 
 async function findJobs() {
-  const findJobsBtn = $("#findJobsBtn");
-  if (!findJobsBtn) return;
+  const button = $("#findJobsBtn");
+  if (!button) return;
 
-  findJobsBtn.disabled = true;
-  findJobsBtn.textContent = "Searching...";
+  button.disabled = true;
+  button.textContent = "Searching...";
   const query = new URLSearchParams({
     source: $("#jobSource")?.value || "live",
     jobType: $("#jobType")?.value || "all",
@@ -164,19 +171,54 @@ async function findJobs() {
   });
 
   try {
-    const data = await apiFetch(`/api/jobs/search?${query.toString()}`, { method: "GET", headers: {} });
+    const data = await apiFetch(`/api/jobs/search?${query.toString()}`, { method: "GET" });
     state.jobs = data.jobs || [];
     renderJobResults(state.jobs);
   } catch (error) {
-    const jobResultsEl = $("#jobResults");
-    if (jobResultsEl) {
-      jobResultsEl.innerHTML = `<article class="result-item"><h4>Could not load jobs</h4><p class="result-meta">${escapeHtml(
-        error.message
-      )}</p></article>`;
+    renderJobResults([]);
+    if ($("#jobResults")) {
+      $("#jobResults").insertAdjacentHTML(
+        "beforeend",
+        `<article class="result-item"><p class="result-meta">${escapeHtml(error.message)}</p></article>`
+      );
     }
   } finally {
-    findJobsBtn.disabled = false;
-    findJobsBtn.textContent = "Find Matching Jobs";
+    button.disabled = false;
+    button.textContent = "Find Matches";
+  }
+}
+
+async function extractResumeFromUpload(file) {
+  const form = new FormData();
+  form.append("resume", file);
+  return apiFetch("/api/resume/extract", {
+    method: "POST",
+    body: form
+  });
+}
+
+async function handleResumeUpload(event) {
+  const uploadStatusEl = $("#uploadStatus");
+  const resumeTextEl = $("#resumeText");
+  const file = event.target.files?.[0];
+  if (!file || !uploadStatusEl || !resumeTextEl) return;
+  if (!state.user) {
+    alert("Please log in first.");
+    event.target.value = "";
+    return;
+  }
+
+  uploadStatusEl.textContent = `Extracting text from ${file.name}...`;
+  try {
+    const data = await extractResumeFromUpload(file);
+    resumeTextEl.value = data.extractedText || "";
+    const size = (data.extractedText || "").length;
+    uploadStatusEl.textContent = `Extracted ${size} characters from ${data.filename}.`;
+    if (data.warning) {
+      uploadStatusEl.textContent += ` ${data.warning}`;
+    }
+  } catch (error) {
+    uploadStatusEl.textContent = error.message;
   }
 }
 
@@ -185,8 +227,10 @@ async function analyzeResume() {
     alert("Please log in first.");
     return;
   }
-  const atsScoreCardEl = $("#atsScoreCard");
-  if (!atsScoreCardEl) return;
+
+  const scoreCard = $("#atsScoreCard");
+  if (!scoreCard) return;
+
   try {
     const data = await apiFetch("/api/resume/analyze", {
       method: "POST",
@@ -195,11 +239,12 @@ async function analyzeResume() {
         jobDescText: $("#jobDescText")?.value || ""
       })
     });
-    atsScoreCardEl.classList.remove("hidden");
-    atsScoreCardEl.innerHTML = `
+    scoreCard.classList.remove("hidden");
+    scoreCard.innerHTML = `
       <p class="score-headline">ATS Match Score: ${data.score}%</p>
-      <p><strong>Matched Keywords:</strong> ${escapeHtml((data.matchedKeywords || []).join(", ") || "None yet")}</p>
-      <p><strong>Missing Keywords:</strong> ${escapeHtml((data.missingKeywords || []).join(", ") || "Great coverage")}</p>
+      <p><strong>Matched keywords:</strong> ${escapeHtml((data.matchedKeywords || []).join(", ") || "None yet")}</p>
+      <p><strong>Missing keywords:</strong> ${escapeHtml((data.missingKeywords || []).join(", ") || "Great coverage")}</p>
+      <p><strong>Suggestions:</strong></p>
       <ul>${(data.suggestions || []).map((tip) => `<li>${escapeHtml(tip)}</li>`).join("")}</ul>
     `;
   } catch (error) {
@@ -207,57 +252,40 @@ async function analyzeResume() {
   }
 }
 
-function handleResumeUpload(event) {
-  const uploadStatusEl = $("#uploadStatus");
-  const resumeTextEl = $("#resumeText");
-  const file = event.target.files?.[0];
-  if (!file || !uploadStatusEl) return;
-  const ext = (file.name.split(".").pop() || "").toLowerCase();
-  if (ext === "txt") {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (resumeTextEl) resumeTextEl.value = String(reader.result || "");
-      uploadStatusEl.textContent = `Loaded ${file.name}.`;
-    };
-    reader.readAsText(file);
-    return;
-  }
-  uploadStatusEl.textContent = `${file.name} attached. Paste extracted text for ATS scoring.`;
-}
-
 async function loadSavedJobs() {
-  const savedJobsEl = $("#savedJobs");
-  if (!savedJobsEl) return;
+  const savedEl = $("#savedJobs");
+  if (!savedEl) return;
   if (!state.user) {
-    savedJobsEl.innerHTML = `<p class="result-meta">Log in to view saved jobs.</p>`;
+    savedEl.innerHTML = `<p class="result-meta">Log in to save and manage jobs.</p>`;
     return;
   }
+
   try {
-    const data = await apiFetch("/api/saved-jobs", { method: "GET", headers: {} });
-    const items = data.savedJobs || [];
-    if (!items.length) {
-      savedJobsEl.innerHTML = `<p class="result-meta">No saved jobs yet.</p>`;
+    const data = await apiFetch("/api/saved-jobs", { method: "GET" });
+    const jobs = data.savedJobs || [];
+    if (!jobs.length) {
+      savedEl.innerHTML = `<p class="result-meta">No saved jobs yet.</p>`;
       return;
     }
-    savedJobsEl.innerHTML = items
+    savedEl.innerHTML = jobs
       .map(
-        (item) => `
+        (job) => `
         <article class="result-item">
-          <h4>${escapeHtml(item.title)} - ${escapeHtml(item.company)}</h4>
-          <p class="result-meta">${escapeHtml(item.location)} | ${escapeHtml(item.job_type)}</p>
+          <h4>${escapeHtml(job.title)} - ${escapeHtml(job.company)}</h4>
+          <p class="result-meta">${escapeHtml(job.location)} | ${escapeHtml(job.job_type)}</p>
           <div class="result-actions">
-            <button class="btn ghost delete-saved-btn" data-id="${item.id}">Remove</button>
-            ${item.url ? `<a class="btn ghost" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">Open Job</a>` : ""}
+            <button class="btn ghost remove-job-btn" data-id="${job.id}">Remove</button>
+            ${job.url ? `<a class="btn ghost" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}
           </div>
         </article>
       `
       )
       .join("");
 
-    document.querySelectorAll(".delete-saved-btn").forEach((btn) => {
-      bind(btn, "click", async () => {
+    $$(".remove-job-btn").forEach((button) => {
+      bind(button, "click", async () => {
         try {
-          await apiFetch(`/api/saved-jobs/${btn.dataset.id}`, { method: "DELETE", headers: {} });
+          await apiFetch(`/api/saved-jobs/${button.dataset.id}`, { method: "DELETE" });
           await loadSavedJobs();
         } catch (error) {
           alert(error.message);
@@ -265,7 +293,7 @@ async function loadSavedJobs() {
       });
     });
   } catch (error) {
-    savedJobsEl.innerHTML = `<p class="result-meta">${escapeHtml(error.message)}</p>`;
+    savedEl.innerHTML = `<p class="result-meta">${escapeHtml(error.message)}</p>`;
   }
 }
 
@@ -284,6 +312,8 @@ async function addApplication() {
         date: $("#trackDate")?.value || ""
       })
     });
+    if ($("#trackCompany")) $("#trackCompany").value = "";
+    if ($("#trackRole")) $("#trackRole").value = "";
     await loadApplications();
   } catch (error) {
     alert(error.message);
@@ -291,43 +321,46 @@ async function addApplication() {
 }
 
 async function loadApplications() {
-  const trackerTableWrapEl = $("#trackerTableWrap");
-  if (!trackerTableWrapEl) return;
+  const wrap = $("#trackerTableWrap");
+  if (!wrap) return;
   if (!state.user) {
-    trackerTableWrapEl.innerHTML = `<p class="result-meta">Log in to track applications.</p>`;
+    wrap.innerHTML = `<p class="result-meta">Log in to track applications.</p>`;
     return;
   }
   try {
-    const data = await apiFetch("/api/applications", { method: "GET", headers: {} });
-    const items = data.applications || [];
-    if (!items.length) {
-      trackerTableWrapEl.innerHTML = `<p class="result-meta">No applications tracked yet.</p>`;
+    const data = await apiFetch("/api/applications", { method: "GET" });
+    const apps = data.applications || [];
+    if (!apps.length) {
+      wrap.innerHTML = `<p class="result-meta">No applications tracked yet.</p>`;
       return;
     }
-    trackerTableWrapEl.innerHTML = `
+    wrap.innerHTML = `
       <table>
-        <thead><tr><th>Company</th><th>Role</th><th>Stage</th><th>Date</th><th>Action</th></tr></thead>
+        <thead>
+          <tr><th>Company</th><th>Role</th><th>Stage</th><th>Date</th><th>Action</th></tr>
+        </thead>
         <tbody>
-          ${items
+          ${apps
             .map(
               (item) => `
-              <tr>
-                <td>${escapeHtml(item.company)}</td>
-                <td>${escapeHtml(item.role)}</td>
-                <td>${escapeHtml(item.stage)}</td>
-                <td>${escapeHtml(item.app_date || "-")}</td>
-                <td><button class="btn ghost delete-app-btn" data-id="${item.id}">Delete</button></td>
-              </tr>
-            `
+            <tr>
+              <td>${escapeHtml(item.company)}</td>
+              <td>${escapeHtml(item.role)}</td>
+              <td>${escapeHtml(item.stage)}</td>
+              <td>${escapeHtml(item.app_date || "-")}</td>
+              <td><button class="btn ghost remove-app-btn" data-id="${item.id}">Delete</button></td>
+            </tr>
+          `
             )
             .join("")}
         </tbody>
       </table>
     `;
-    document.querySelectorAll(".delete-app-btn").forEach((btn) => {
-      bind(btn, "click", async () => {
+
+    $$(".remove-app-btn").forEach((button) => {
+      bind(button, "click", async () => {
         try {
-          await apiFetch(`/api/applications/${btn.dataset.id}`, { method: "DELETE", headers: {} });
+          await apiFetch(`/api/applications/${button.dataset.id}`, { method: "DELETE" });
           await loadApplications();
         } catch (error) {
           alert(error.message);
@@ -335,7 +368,7 @@ async function loadApplications() {
       });
     });
   } catch (error) {
-    trackerTableWrapEl.innerHTML = `<p class="result-meta">${escapeHtml(error.message)}</p>`;
+    wrap.innerHTML = `<p class="result-meta">${escapeHtml(error.message)}</p>`;
   }
 }
 
@@ -361,25 +394,33 @@ async function chooseTier(plan) {
 }
 
 async function loadAnalytics() {
-  const analyticsWrapEl = $("#analyticsWrap");
-  if (!analyticsWrapEl) return;
+  const wrap = $("#analyticsWrap");
+  if (!wrap) return;
   if (!state.user) {
-    analyticsWrapEl.innerHTML = `<p class="result-meta">Please log in as admin.</p>`;
+    wrap.innerHTML = `<p class="result-meta">Please log in as admin.</p>`;
     return;
   }
   try {
-    const data = await apiFetch("/api/admin/analytics", { method: "GET", headers: {} });
+    const data = await apiFetch("/api/admin/analytics", { method: "GET" });
     const a = data.analytics;
-    analyticsWrapEl.innerHTML = `
+    wrap.innerHTML = `
       <div class="kpi-grid">
         <article class="kpi"><p>Total Users</p><strong>${a.totalUsers}</strong></article>
         <article class="kpi"><p>Saved Jobs</p><strong>${a.totalSavedJobs}</strong></article>
         <article class="kpi"><p>Applications</p><strong>${a.totalApplications}</strong></article>
         <article class="kpi"><p>ATS Analyses</p><strong>${a.totalAtsAnalyses}</strong></article>
       </div>
+      <article class="result-item">
+        <h4>Plan Breakdown</h4>
+        <p class="result-meta">${(a.planBreakdown || []).map((p) => `${p.plan}: ${p.count}`).join(" | ") || "No data"}</p>
+      </article>
+      <article class="result-item">
+        <h4>Application Stage Breakdown</h4>
+        <p class="result-meta">${(a.stageBreakdown || []).map((s) => `${s.stage}: ${s.count}`).join(" | ") || "No data"}</p>
+      </article>
     `;
   } catch (error) {
-    analyticsWrapEl.innerHTML = `<p class="result-meta">${escapeHtml(error.message)}</p>`;
+    wrap.innerHTML = `<p class="result-meta">${escapeHtml(error.message)}</p>`;
   }
 }
 
@@ -392,10 +433,7 @@ function initBindings() {
   bind($("#resumeUploadInput"), "change", handleResumeUpload);
   bind($("#addTrackerBtn"), "click", addApplication);
   bind($("#loadAnalyticsBtn"), "click", loadAnalytics);
-
-  document.querySelectorAll(".tier-btn").forEach((button) => {
-    bind(button, "click", () => chooseTier(button.dataset.tier));
-  });
+  $$(".tier-btn").forEach((button) => bind(button, "click", () => chooseTier(button.dataset.tier)));
 }
 
 async function bootstrap() {
